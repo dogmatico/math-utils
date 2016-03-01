@@ -1,6 +1,6 @@
 'use strict';
 
-function HermitePolinomial(interpolationPoints) {
+function HermitePolynomial(interpolationPoints) {
   if (!Array.isArray(interpolationPoints)) {
     return new Error('Invalid argument. Must provide an array of points.');
   }
@@ -41,7 +41,7 @@ function HermitePolinomial(interpolationPoints) {
   }
 }
 
-HermitePolinomial.prototype.evaluate = function (x) {
+HermitePolynomial.prototype.evaluate = function (x) {
   const n = this._coefficients.length;
   let res = this._coefficients[n - 1][1];
 
@@ -52,7 +52,7 @@ HermitePolinomial.prototype.evaluate = function (x) {
   return res;
 }
 
-HermitePolinomial.prototype.derivative = function (x) {
+HermitePolynomial.prototype.derivative = function (x) {
   const n = this._coefficients.length;
 
   let Pn = this._coefficients[n - 1][1];
@@ -66,7 +66,7 @@ HermitePolinomial.prototype.derivative = function (x) {
   return [Pn, dPn];
 }
 
-HermitePolinomial.prototype.findRoot = function (seed, tolerance, iterations) {
+HermitePolynomial.prototype.findRoot = function (seed, tolerance, iterations) {
   tolerance = tolerance || 1e-6;
   iterations = (Number.isInteger(iterations) && iterations > 1 ? iterations : 10);
 
@@ -90,4 +90,4 @@ HermitePolinomial.prototype.findRoot = function (seed, tolerance, iterations) {
   return x1;
 }
 
-module.exports = HermitePolinomial;
+module.exports = HermitePolynomial;
