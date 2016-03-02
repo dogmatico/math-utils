@@ -17,6 +17,8 @@ function HermitePolynomial(interpolationPoints) {
     return (a[0] - b[0]);
   });
 
+  this._interpolationPoints = interpolationPoints;
+
   function factorial(n) {
     let res = 1;
     if (n <= 1) {
@@ -90,4 +92,98 @@ HermitePolynomial.prototype.findRoot = function (seed, tolerance, iterations) {
   return x1;
 }
 
-module.exports = HermitePolynomial;
+
+/**
+ * Constructor for spline using Hermite Interpolation
+ * @param {array[float[]]} interpolationPoints [[x, f(x), f'(x), ..., f^n(x)]];
+ */
+function HermiteSpline(interpolPts) {
+  this._interpolPts = interpolPts;
+  this._interpolationPolynomials = [];
+
+  const normalizedPoints = interpolPts.reduce((acum, point) => {
+    const expandedPoint = [];
+    for (let i = 1, ln = point.length; i < ln; i += 1) {
+      expandedPoint.push([point[0], point[i]]);
+    }
+    acum.push(expandedPoint);
+    return acum;
+  }, []);
+
+
+  for (let i = 1, ln = normalizedPoints.length; i < ln; i += 1) {
+    this._interpolationPolynomials.push(
+      new HermitePolynomial(normalizedPoints[i - 1].concat(normalizedPoints[i]))
+    );
+  }
+}
+
+Object.defineProperties(HermiteSpline.prototype, {
+  "_getIndexOfSegment" : {
+    enumerable : false,
+    value : function (x) {
+      if (this.outOfBounds(x)) {
+        return null;
+      }
+      var index = 0;
+      for (let ln = this._interpolPts.length; index < ln && this._interpolPts[index][0] < x; index += 1) {
+        // Empty block
+      }
+
+      return Math.max(0, index - 1);
+    }
+  },
+  "outOfBounds" : {
+    enumerable : true,
+    value : function (x) {
+      return (x < this._interpolPts[0][0] || x > this._interpolPts[this._interpolPts.length -1][0] ? true : false);
+    }
+  },
+  "addPoint" : {
+    enumerable : true,
+    value : function (point, allowOutsideBounds) {
+      if (point[0] < this._interpolPts[0][0] || point[0] > this._interpolPts[this._interpolPts.length - 1][0]) {
+        if (!allowOutsideBounds) {
+          return new Error('The point that you tried to add to the interpolation is outside of the initial range.');
+        }
+        if (point[0] < this._interpolPts[0][0]) {
+          this._interpolationPolynomials.splice(0, 0, new HermitePolynomial([
+            [point[0], point[1]],
+            [point[0], point[2]],
+            [this._interpolPts[0][0], this._interpolPts[0][1]],
+            [this._interpolPts[0][0], this._interpolPts[0][2]]
+          ]));
+
+          this._interpolPts.splice(0,0, point.slice(0));
+
+        } else {
+          const ln = this._interpolPts.length;
+          this._interpolationPolynomials.push(new HermitePolynomial([
+            [this._interpolPts[ln - 1][0], this._interpolPts[ln - 1][1]],
+            [this._interpolPts[ln - 1][0], this._interpolPts[ln - 1][2]],
+            [point[0], point[1]],
+            [point[0], point[2]]
+          ]));
+          this._interpolPts.push(point.slice(0));
+        }
+      } else {
+        const insertIndex = this._getIndexOfPoint(point[0]);
+      }
+
+    }
+  },
+  "evaluate" : {
+    enumerable : true,
+    value : function (x) {
+      const index = this._getIndexOfSegment(x);
+      console.log(index);
+      return (index === null ? null : this._interpolationPolynomials[index].evaluate(x));
+    }
+  }
+});
+
+
+module.exports = {
+  HermitePolynomial : HermitePolynomial,
+  HermiteSpline : HermiteSpline
+};
