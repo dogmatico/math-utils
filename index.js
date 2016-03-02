@@ -17,7 +17,7 @@ function HermitePolynomial(interpolationPoints) {
     return (a[0] - b[0]);
   });
 
-  this._interpolationPoints = interpolationPoints;
+  this._interpolPts = interpolationPoints;
 
   function factorial(n) {
     let res = 1;
@@ -101,15 +101,7 @@ function HermiteSpline(interpolPts) {
   this._interpolPts = interpolPts;
   this._interpolationPolynomials = [];
 
-  const normalizedPoints = interpolPts.reduce((acum, point) => {
-    const expandedPoint = [];
-    for (let i = 1, ln = point.length; i < ln; i += 1) {
-      expandedPoint.push([point[0], point[i]]);
-    }
-    acum.push(expandedPoint);
-    return acum;
-  }, []);
-
+  const normalizedPoints = this._unrollArrayPoints(interpolPts);
 
   for (let i = 1, ln = normalizedPoints.length; i < ln; i += 1) {
     this._interpolationPolynomials.push(
@@ -133,6 +125,47 @@ Object.defineProperties(HermiteSpline.prototype, {
       return Math.max(0, index - 1);
     }
   },
+  "_getIndexOfPoint" : {
+    enumerable : false,
+    value : function (x) {
+      if (this.outOfBounds(x)) {
+        return null;
+      }
+      var index = 0;
+      for ( ; x > this._interpolPts[index + 1][0]; index += 1) {
+        // Empy block. Seek index;
+      }
+      return index;
+    }
+  },
+  "_updateCoefficients" : {
+    enumerable : false,
+    value : function (index) {
+      const pointsArguments = [];
+
+      [index, index + 1].forEach(i => {
+        for (let j = 1, ln = this._interpolPts[i].length; i < ln; i += 1) {
+          pointsArguments.push([this._interpolPts[i][0], this._interpolPts[i][j]]);
+        }
+      });
+
+      this._interpolationPolynomials[index] = new HermitePolynomial(pointsArguments);
+
+    }
+  },
+  "_unrollArrayPoints" : {
+    enumerable : false,
+    value : function (points) {
+      return points.reduce((acum, point) => {
+        const expandedPoint = [];
+        for (let i = 1, ln = point.length; i < ln; i += 1) {
+          expandedPoint.push([point[0], point[i]]);
+        }
+        acum.push(expandedPoint);
+        return acum;
+      }, []);
+    }
+  },
   "outOfBounds" : {
     enumerable : true,
     value : function (x) {
@@ -146,37 +179,55 @@ Object.defineProperties(HermiteSpline.prototype, {
         if (!allowOutsideBounds) {
           return new Error('The point that you tried to add to the interpolation is outside of the initial range.');
         }
+
+        const unrolledPoints = (point[0] < this._interpolPts[0][0] ?
+          this._unrollArrayPoints([
+            point,
+            this._interpolPts[0]
+          ]) :
+          this._unrollArrayPoints([
+            this._interpolPts[ln - 1],
+            point
+          ])
+        );
+        const newPoly = new HermitePolynomial(unrolledPoints[0].concat(unrolledPoints[1]));
+
         if (point[0] < this._interpolPts[0][0]) {
-          this._interpolationPolynomials.splice(0, 0, new HermitePolynomial([
-            [point[0], point[1]],
-            [point[0], point[2]],
-            [this._interpolPts[0][0], this._interpolPts[0][1]],
-            [this._interpolPts[0][0], this._interpolPts[0][2]]
-          ]));
-
+          this._interpolationPolynomials.splice(0, 0, newPoly);
           this._interpolPts.splice(0,0, point.slice(0));
-
         } else {
-          const ln = this._interpolPts.length;
-          this._interpolationPolynomials.push(new HermitePolynomial([
-            [this._interpolPts[ln - 1][0], this._interpolPts[ln - 1][1]],
-            [this._interpolPts[ln - 1][0], this._interpolPts[ln - 1][2]],
-            [point[0], point[1]],
-            [point[0], point[2]]
-          ]));
+          this._interpolationPolynomials.push(newPoly);
           this._interpolPts.push(point.slice(0));
         }
       } else {
         const insertIndex = this._getIndexOfPoint(point[0]);
-      }
+        this._interpolPts.splice(insertIndex + 1, 0, point.slice(0));
 
+        const unrolledPoints = this._unrollArrayPoints([
+          this._interpolPts[insertIndex],
+          this._interpolPts[insertIndex + 1]
+        ]);
+
+        this._interpolationPolynomials.splice(insertIndex, 0, new HermitePolynomial(
+          unrolledPoints[0].concat(unrolledPoints[1])
+        ));
+
+        this._updateCoefficients(insertIndex + 1);
+      }
+    }
+  },
+  "deletePoint" : {
+    enumerable : true,
+    value : function (indexOrPoint) {
+      if (!Number.isInteger(indexOrPoint)) {
+
+      }
     }
   },
   "evaluate" : {
     enumerable : true,
     value : function (x) {
       const index = this._getIndexOfSegment(x);
-      console.log(index);
       return (index === null ? null : this._interpolationPolynomials[index].evaluate(x));
     }
   }
