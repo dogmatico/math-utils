@@ -143,11 +143,15 @@ Object.defineProperties(HermiteSpline.prototype, {
     value : function (index) {
       const pointsArguments = [];
 
-      [index, index + 1].forEach(i => {
-        for (let j = 1, ln = this._interpolPts[i].length; i < ln; i += 1) {
-          pointsArguments.push([this._interpolPts[i][0], this._interpolPts[i][j]]);
-        }
-      });
+      [index, index + 1]
+        .filter(i => {
+          return (i >= 0 && i < this._interpolPts.length);
+        })
+        .forEach(i => {
+          for (let j = 1, ln = this._interpolPts[i].length; i < ln; i += 1) {
+            pointsArguments.push([this._interpolPts[i][0], this._interpolPts[i][j]]);
+          }
+        });
 
       this._interpolationPolynomials[index] = new HermitePolynomial(pointsArguments);
 
@@ -219,9 +223,30 @@ Object.defineProperties(HermiteSpline.prototype, {
   "deletePoint" : {
     enumerable : true,
     value : function (indexOrPoint) {
-      if (!Number.isInteger(indexOrPoint)) {
+      const index = (Number.isInteger(indexOrPoint) ? indexOrPoint : this._interpolPts.findIndex(item => {
+        if (item.length !== indexOrPoint.length) {
+            return false;
+        }
+        var result = true;
+        for (let i = 0, ln = indexOrPoint.length; i < ln && result; i += 1) {
+          if (indexOrPoint[i] !== item[i]) {
+            result = false;
+          }
+        }
+        return result;
+      }));
 
+      if (indexOrPoint < 0 || indexOrPoint > this._interpolPts.length - 1) {
+        return null;
       }
+
+      const deletedPoint = this._interpolPts[indexOrPoint];
+
+      this._interpolPts.splice(indexOrPoint, 1);
+      this._updateCoefficients(indexOrPoint - 1);
+      this._interpolationPolynomials.splice(indexOrPoint, 1);
+
+      return deletedPoint;
     }
   },
   "evaluate" : {
